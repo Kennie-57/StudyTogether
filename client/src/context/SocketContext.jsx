@@ -1,16 +1,27 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
+import { useAuth } from './AuthContext';
+import { resolveApiUrl } from '../lib/config.js';
 
 const SocketContext = createContext(null);
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
 export function SocketProvider({ children }) {
+  const { user } = useAuth();
   const socketRef = useRef(null);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const socket = io(SOCKET_URL, { autoConnect: true });
+    const apiUrl = resolveApiUrl();
+    if (!user || !apiUrl) {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+        setConnected(false);
+      }
+      return;
+    }
+
+    const socket = io(apiUrl, { autoConnect: true });
     socketRef.current = socket;
 
     socket.on('connect', () => setConnected(true));
@@ -18,8 +29,10 @@ export function SocketProvider({ children }) {
 
     return () => {
       socket.disconnect();
+      socketRef.current = null;
+      setConnected(false);
     };
-  }, []);
+  }, [user]);
 
   const getSocket = () => socketRef.current;
 

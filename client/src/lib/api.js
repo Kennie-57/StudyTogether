@@ -1,4 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL || '';
+import { resolveApiUrl } from './config.js';
+
+const API_URL = resolveApiUrl();
 
 export async function apiFetch(path, options = {}, token) {
   const headers = {

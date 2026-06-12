@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/Button';
 import { useAuth } from '../context/AuthContext';
+import { getConfigErrors } from '../lib/config.js';
 import './Login.css';
 
 function parseAuthError(err) {
@@ -16,6 +17,7 @@ export default function Login() {
   const { user, loading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState('');
+  const configErrors = getConfigErrors();
 
   useEffect(() => {
     if (!loading && user) navigate('/', { replace: true });
@@ -59,8 +61,18 @@ export default function Login() {
             theo thời gian thực.
           </p>
         </div>
+        {configErrors.length > 0 && (
+          <div className="login-error">
+            <strong>Cấu hình deploy chưa đầy đủ:</strong>
+            <ul>
+              {configErrors.map((msg) => (
+                <li key={msg}>{msg}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {error && <div className="login-error">{error}</div>}
-        <Button fullWidth onClick={handleLogin}>
+        <Button fullWidth onClick={handleLogin} disabled={configErrors.length > 0}>
           Đăng nhập bằng Google
         </Button>
       </div>

@@ -49,3 +49,8 @@
   text-align: left;
   line-height: 1.45;
 }
+
+.login-error ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
