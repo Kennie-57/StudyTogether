@@ -3,28 +3,52 @@ import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
 
+function getAuthRedirectUrl() {
+  return `${window.location.origin}/login`;
+}
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
+    let active = true;
+
+    async function initSession() {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) console.error('OAuth callback failed:', error.message);
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+
+      const { data, error } = await supabase.auth.getSession();
+      if (error) console.error('getSession failed:', error.message);
+      if (active) {
+        setSession(data.session);
+        setLoading(false);
+      }
+    }
+
+    initSession();
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
+      if (active) setSession(newSession);
     });
 
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   const signInWithGoogle = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: getAuthRedirectUrl(),
       },
     });
     if (error) throw error;

@@ -10,6 +10,9 @@ function parseAuthError(err) {
   if (msg.includes('provider is not enabled') || err?.error_code === 'validation_failed') {
     return 'Google OAuth chưa được bật trên Supabase. Vào Dashboard → Authentication → Providers → Google và bật provider.';
   }
+  if (msg.includes('redirect') || msg.includes('Redirect')) {
+    return 'Redirect URL chưa được phép. Vào Supabase → Authentication → URL Configuration, thêm https://study-together-jade.vercel.app/** vào Redirect URLs.';
+  }
   return msg || 'Đăng nhập thất bại. Vui lòng thử lại.';
 }
 

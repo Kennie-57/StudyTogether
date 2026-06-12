@@ -7,9 +7,16 @@ import Login from './pages/Login';
 import Profile from './pages/Profile';
 import Room from './pages/Room';
 
+function hasPendingAuthCallback() {
+  const { search, hash } = window.location;
+  return search.includes('code=') || hash.includes('access_token=');
+}
+
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return <p style={{ padding: 24 }}>Đang tải...</p>;
+  if (loading || hasPendingAuthCallback()) {
+    return <p style={{ padding: 24 }}>Đang tải...</p>;
+  }
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }

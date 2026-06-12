@@ -30,8 +30,11 @@ study-together-app/
    - Supabase Dashboard → **Authentication → Providers → Google**
    - Bật **Enable Sign in with Google**, dán Client ID + Secret → **Save**
 3. **URL Configuration** (Authentication → URL Configuration):
-   - **Site URL**: `http://localhost:5173`
-   - **Redirect URLs**: thêm `http://localhost:5173`
+   - **Site URL** (local): `http://localhost:5173`
+   - **Redirect URLs**: thêm `http://localhost:5173/**`
+   - Khi deploy production, cập nhật:
+     - **Site URL**: `https://study-together-jade.vercel.app`
+     - **Redirect URLs**: thêm `https://study-together-jade.vercel.app/**`
 4. Vào **SQL Editor**, chạy **toàn bộ** nội dung file `supabase/schema.sql`.
    - Nếu đã đăng nhập Google **trước** khi chạy schema, file SQL có đoạn backfill tự tạo `profiles` cho user hiện có.
    - Lỗi `500` khi tạo phòng thường do chưa chạy schema hoặc thiếu bản ghi `profiles`.
