@@ -1,0 +1,48 @@
+config:
+  target: "https://studytogether-joul.onrender.com"
+  phases:
+    - duration: 498 # Chạy trong 498 giây
+      arrivalCount: 249
+  processor: "./processor.js"
+  engines:
+    socketio: {}
+
+scenarios:
+  - name: "Bot join room and interact"
+    engine: socketio
+    flow:
+      # 1. Gọi hàm tính toán dữ liệu
+      - function: "assignBotData"
+      
+      # 2. Phát sự kiện room:join
+      - emit:
+          channel: "room:join"
+          data:
+            roomId: "{{ roomId }}"
+            token: "{{ token }}"
+            expiresAt: "{{ expiresAt }}"
+            
+      # 3. Vòng lặp tương tác (giữ connection sống và hoạt động)
+      - loop:
+          # Đổi status (~3s)
+          - think: 3
+          - emit:
+              channel: "room:status"
+              data:
+                statusIcon: "☕"
+                
+          # Gửi chat (cách nhau ~5s nhờ tổng thời gian think trong loop)
+          - think: 2
+          - emit:
+              channel: "room:chat"
+              data:
+                content: "Hello everyone, bot is studying!"
+                
+          # Đổi status lần 2 
+          - think: 3
+          - emit:
+              channel: "room:status"
+              data:
+                statusIcon: "📚"
+                
+        count: 100 # Lặp lại 100 lần để duy trì kết nối đủ lâu

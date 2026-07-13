@@ -231,31 +231,47 @@ export function registerRoomHandlers(io, socket) {
     await deleteRoomFromDb(roomId);
   });
 
-  socket.on('disconnect', () => {
-    const roomId = socket.roomId;
-    if (!roomId) return;
+  socket.on('disconnect', async () => {
+    try {
+      const roomId = socket.roomId;
+      if (!roomId) return;
 
-    const room = getRoom(roomId);
-    if (!room) return;
+      const room = getRoom(roomId);
+      if (!room) return;
 
-    const leavingUser = room.users.find((u) => u.socketId === socket.id);
-    const wasHost = leavingUser?.isHost;
+      const leavingUser = room.users.find((u) => u.socketId === socket.id);
+      const wasHost = leavingUser?.isHost;
 
-    removeUser(roomId, socket.id);
+      // Xóa user khỏi phòng ngay lập tức
+      removeUser(roomId, socket.id);
 
-    if (room.users.length === 0) {
-      if (room.expiryTimer) clearTimeout(room.expiryTimer);
-      removeRoom(roomId);
-      deleteRoomFromDb(roomId);
-      return;
+      // Nếu phòng trống, dọn dẹp timer và xóa phòng khỏi bộ nhớ & DB
+      if (room.users.length === 0) {
+        if (room.expiryTimer) clearTimeout(room.expiryTimer);
+        removeRoom(roomId);
+        // Thêm await để đảm bảo xóa trong DB thành công trước khi kết thúc
+        await deleteRoomFromDb(roomId);
+        return;
+      }
+
+      // Logic chuẩn hóa: Nếu host rời đi và phòng VẪN CÒN người
+      if (wasHost) {
+        // Lấy user đầu tiên trong danh sách những người còn lại làm Host mới
+        const nextHost = room.users[0];
+
+        if (nextHost) {
+          room.designatedHostId = nextHost.userId; // Cập nhật lại ID host chuẩn
+          assignHost(room, nextHost.userId);
+        }
+      }
+
+      // Thông báo cho các thành viên còn lại
+      io.to(roomId).emit('room:user-left', { userId: leavingUser?.userId });
+      emitRoomState(io, roomId);
+
+    } catch (error) {
+      console.error(`[Disconnect Error] Lỗi khi xử lý ngắt kết nối cho socket ${socket.id}:`, error);
     }
-
-    if (wasHost) {
-      assignHost(room, room.designatedHostId);
-    }
-
-    io.to(roomId).emit('room:user-left', { userId: leavingUser?.userId });
-    emitRoomState(io, roomId);
   });
 }
 
