@@ -83,6 +83,29 @@ function handleHostDisconnect(io, socket, roomId) {
   scheduleRoomExpiry(io, roomId);
 }
 
+function handleUserRemoval(io, roomId, socketId) {
+  const room = getRoom(roomId);
+  if (!room) return;
+
+  const leavingUser = room.users.find((u) => u.socketId === socketId);
+  const wasHost = leavingUser?.isHost;
+
+  removeUser(roomId, socketId);
+
+  if (room.users.length === 0) {
+    if (room.expiryTimer) clearTimeout(room.expiryTimer);
+    removeRoom(roomId);
+    deleteRoomFromDb(roomId);
+  } else if (wasHost) {
+    // Chuyển quyền cho người tiếp theo trong danh sách
+    const nextHost = room.users[0];
+    assignHost(room, nextHost.userId);
+  }
+
+  io.to(roomId).emit('room:user-left', { userId: leavingUser?.userId });
+  emitRoomState(io, roomId);
+}
+
 export function registerRoomHandlers(io, socket) {
   socket.on('room:join', async ({ roomId, token, expiresAt }) => {
     try {
@@ -231,46 +254,19 @@ export function registerRoomHandlers(io, socket) {
     await deleteRoomFromDb(roomId);
   });
 
-  socket.on('disconnect', async () => {
-    try {
-      const roomId = socket.roomId;
-      if (!roomId) return;
+  // 1. Handler cho sự kiện chủ động rời phòng
+  socket.on('room:leave', () => {
+    if (socket.roomId) {
+      handleUserRemoval(io, socket.roomId, socket.id);
+      socket.leave(socket.roomId);
+      socket.roomId = null;
+    }
+  });
 
-      const room = getRoom(roomId);
-      if (!room) return;
-
-      const leavingUser = room.users.find((u) => u.socketId === socket.id);
-      const wasHost = leavingUser?.isHost;
-
-      // Xóa user khỏi phòng ngay lập tức
-      removeUser(roomId, socket.id);
-
-      // Nếu phòng trống, dọn dẹp timer và xóa phòng khỏi bộ nhớ & DB
-      if (room.users.length === 0) {
-        if (room.expiryTimer) clearTimeout(room.expiryTimer);
-        removeRoom(roomId);
-        // Thêm await để đảm bảo xóa trong DB thành công trước khi kết thúc
-        await deleteRoomFromDb(roomId);
-        return;
-      }
-
-      // Logic chuẩn hóa: Nếu host rời đi và phòng VẪN CÒN người
-      if (wasHost) {
-        // Lấy user đầu tiên trong danh sách những người còn lại làm Host mới
-        const nextHost = room.users[0];
-
-        if (nextHost) {
-          room.designatedHostId = nextHost.userId; // Cập nhật lại ID host chuẩn
-          assignHost(room, nextHost.userId);
-        }
-      }
-
-      // Thông báo cho các thành viên còn lại
-      io.to(roomId).emit('room:user-left', { userId: leavingUser?.userId });
-      emitRoomState(io, roomId);
-
-    } catch (error) {
-      console.error(`[Disconnect Error] Lỗi khi xử lý ngắt kết nối cho socket ${socket.id}:`, error);
+  // 2. Handler cho sự kiện disconnect (vẫn giữ để backup)
+  socket.on('disconnect', () => {
+    if (socket.roomId) {
+      handleUserRemoval(io, socket.roomId, socket.id);
     }
   });
 }

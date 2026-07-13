@@ -129,6 +129,8 @@ export default function Room() {
   };
 
   const leaveRoom = () => {
+    // Gửi tín hiệu rời phòng để server xử lý migration Host trước khi UI chuyển trang
+    getSocket()?.emit('room:leave');
     navigate('/');
   };
 
@@ -183,9 +185,8 @@ export default function Room() {
                 <button
                   key={icon}
                   type="button"
-                  className={`status-btn ${
-                    currentUser?.statusIcon === icon ? 'active' : ''
-                  }`}
+                  className={`status-btn ${currentUser?.statusIcon === icon ? 'active' : ''
+                    }`}
                   title={label}
                   onClick={() => setStatus(icon)}
                 >
@@ -205,9 +206,8 @@ export default function Room() {
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`chat-bubble ${
-                  msg.userId === user?.id ? 'own' : ''
-                }`}
+                className={`chat-bubble ${msg.userId === user?.id ? 'own' : ''
+                  }`}
               >
                 <span className="chat-author">{msg.username}</span>
                 <span className="chat-text">{msg.content}</span>
