@@ -109,40 +109,61 @@ function handleUserRemoval(io, roomId, socketId) {
 export function registerRoomHandlers(io, socket) {
   socket.on('room:join', async ({ roomId, token, expiresAt }) => {
     try {
-      const { verifyToken } = await import('../config/supabase.js');
-      const user = await verifyToken(token);
-      if (!user) {
-        socket.emit('room:error', { message: 'Unauthorized' });
-        return;
+      const isBot = token && token.startsWith('BOT_TOKEN_');
+      let user, username, avatarUrl, designatedHostId, finalExpiresAt;
+
+      if (isBot) {
+        // LUỒNG BYPASS (MOCK DỮ LIỆU DÀNH CHO BOT TEST)
+        const botId = token.replace('BOT_TOKEN_', ''); // Lấy ID số của bot
+        user = { id: `bot-user-uuid-${botId}` };
+        username = `Bot ${botId}`;
+        avatarUrl = null;
+        finalExpiresAt = expiresAt || new Date(Date.now() + 86400000).toISOString();
+        designatedHostId = null; // Để trống để thuật toán tự lấy người đầu tiên làm Host
+      } else {
+        // LUỒNG THỰC TẾ (DÀNH CHO USER THẬT)
+        const { verifyToken } = await import('../config/supabase.js');
+        user = await verifyToken(token);
+        if (!user) {
+          socket.emit('room:error', { message: 'Unauthorized' });
+          return;
+        }
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, avatar_url')
+          .eq('id', user.id)
+          .single();
+
+        username = profile?.full_name || user.user_metadata?.full_name || 'User';
+        avatarUrl = profile?.avatar_url || null;
+
+        const { data: dbRoom } = await supabase
+          .from('rooms')
+          .select('id, host_id, expires_at')
+          .eq('id', roomId)
+          .single();
+
+        if (!dbRoom || new Date(dbRoom.expires_at) <= new Date()) {
+          socket.emit('room:error', { message: 'Room not found or expired' });
+          return;
+        }
+
+        designatedHostId = dbRoom.host_id;
+        finalExpiresAt = expiresAt || dbRoom.expires_at;
       }
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name, avatar_url')
-        .eq('id', user.id)
-        .single();
-
-      const username = profile?.full_name || user.user_metadata?.full_name || 'User';
-
-      const { data: dbRoom } = await supabase
-        .from('rooms')
-        .select('id, host_id, expires_at')
-        .eq('id', roomId)
-        .single();
-
-      if (!dbRoom || new Date(dbRoom.expires_at) <= new Date()) {
-        socket.emit('room:error', { message: 'Room not found or expired' });
-        return;
+      // XỬ LÝ LƯU VÀO RAM CHUNG CHO CẢ 2 LUỒNG
+      const room = createOrGetRoom(roomId, finalExpiresAt);
+      if (!isBot) {
+        room.designatedHostId = designatedHostId;
       }
-
-      const room = createOrGetRoom(roomId, expiresAt || dbRoom.expires_at);
-      room.designatedHostId = dbRoom.host_id;
 
       const result = addUser(roomId, {
         socketId: socket.id,
         userId: user.id,
         username,
-        avatarUrl: profile?.avatar_url || null,
+        avatarUrl,
         isHost: false,
         statusIcon: '📚',
       });
@@ -158,7 +179,10 @@ export function registerRoomHandlers(io, socket) {
       socket.userId = user.id;
       socket.join(roomId);
 
-      await incrementRoomsJoined(user.id);
+      // Chỉ gọi Database ghi nhận số lần vào phòng đối với user thật
+      if (!isBot) {
+        await incrementRoomsJoined(user.id);
+      }
 
       socket.emit('room:joined', serializeRoom(room));
       socket.to(roomId).emit('room:user-joined', {
@@ -168,7 +192,9 @@ export function registerRoomHandlers(io, socket) {
       });
       emitRoomState(io, roomId);
       scheduleRoomExpiry(io, roomId);
+
     } catch (err) {
+      console.error('Join Error:', err); // Log lỗi ra console để bạn dễ monitor khi server chạy
       socket.emit('room:error', { message: err.message });
     }
   });
