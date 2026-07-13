@@ -46,3 +46,5 @@ scenarios:
                 statusIcon: "📚"
                 
         count: 100 # Lặp lại 100 lần để duy trì kết nối đủ lâu
+      - emit:
+          channel: "room:leave"
