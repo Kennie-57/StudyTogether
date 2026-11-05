@@ -1,4 +1,3 @@
-/** In-memory real-time room state (not persisted to DB) */
 export const activeRooms = new Map();
 
 const MAX_USERS_PER_ROOM = 10;
@@ -53,7 +52,6 @@ export function removeUser(roomId, socketId) {
   return room;
 }
 
-/** Alpha-beta sort: alphabetical by username */
 export function sortUsersAlpha(users) {
   return [...users].sort((a, b) =>
     a.username.localeCompare(b.username, 'vi', { sensitivity: 'base' })

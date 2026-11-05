@@ -26,7 +26,17 @@ app.use(cors({ origin: clientUrl, credentials: true }));
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  const mem = process.memoryUsage();
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    memory: {
+      rssMB: Number((mem.rss / 1024 / 1024).toFixed(2)),
+      heapUsedMB: Number((mem.heapUsed / 1024 / 1024).toFixed(2)),
+      heapTotalMB: Number((mem.heapTotal / 1024 / 1024).toFixed(2)),
+    },
+    sockets: io.engine.clientsCount,
+  });
 });
 
 app.use('/api/rooms', roomsRouter);

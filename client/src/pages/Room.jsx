@@ -129,7 +129,6 @@ export default function Room() {
   };
 
   const leaveRoom = () => {
-    // Gửi tín hiệu rời phòng để server xử lý migration Host trước khi UI chuyển trang
     getSocket()?.emit('room:leave');
     navigate('/');
   };

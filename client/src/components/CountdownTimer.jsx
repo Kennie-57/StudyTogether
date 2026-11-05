@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import './CountdownTimer.css';
 
-/** Displays countdown from server-provided expiresAt only — no client-side room closure logic */
 export default function CountdownTimer({ expiresAt }) {
   const [remaining, setRemaining] = useState(() => calcRemaining(expiresAt));
 

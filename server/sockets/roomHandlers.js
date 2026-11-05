@@ -97,7 +97,6 @@ function handleUserRemoval(io, roomId, socketId) {
     removeRoom(roomId);
     deleteRoomFromDb(roomId);
   } else if (wasHost) {
-    // Chuyển quyền cho người tiếp theo trong danh sách
     const nextHost = room.users[0];
     assignHost(room, nextHost.userId);
   }
@@ -113,15 +112,13 @@ export function registerRoomHandlers(io, socket) {
       let user, username, avatarUrl, designatedHostId, finalExpiresAt;
 
       if (isBot) {
-        // LUỒNG BYPASS (MOCK DỮ LIỆU DÀNH CHO BOT TEST)
-        const botId = token.replace('BOT_TOKEN_', ''); // Lấy ID số của bot
+        const botId = token.replace('BOT_TOKEN_', '');
         user = { id: `bot-user-uuid-${botId}` };
         username = `Bot ${botId}`;
         avatarUrl = null;
         finalExpiresAt = expiresAt || new Date(Date.now() + 86400000).toISOString();
-        designatedHostId = null; // Để trống để thuật toán tự lấy người đầu tiên làm Host
+        designatedHostId = null;
       } else {
-        // LUỒNG THỰC TẾ (DÀNH CHO USER THẬT)
         const { verifyToken } = await import('../config/supabase.js');
         user = await verifyToken(token);
         if (!user) {
@@ -153,7 +150,6 @@ export function registerRoomHandlers(io, socket) {
         finalExpiresAt = expiresAt || dbRoom.expires_at;
       }
 
-      // XỬ LÝ LƯU VÀO RAM CHUNG CHO CẢ 2 LUỒNG
       const room = createOrGetRoom(roomId, finalExpiresAt);
       if (!isBot) {
         room.designatedHostId = designatedHostId;
@@ -179,7 +175,6 @@ export function registerRoomHandlers(io, socket) {
       socket.userId = user.id;
       socket.join(roomId);
 
-      // Chỉ gọi Database ghi nhận số lần vào phòng đối với user thật
       if (!isBot) {
         await incrementRoomsJoined(user.id);
       }
@@ -194,7 +189,7 @@ export function registerRoomHandlers(io, socket) {
       scheduleRoomExpiry(io, roomId);
 
     } catch (err) {
-      console.error('Join Error:', err); // Log lỗi ra console để bạn dễ monitor khi server chạy
+      console.error('Join Error:', err);
       socket.emit('room:error', { message: err.message });
     }
   });
@@ -280,7 +275,6 @@ export function registerRoomHandlers(io, socket) {
     await deleteRoomFromDb(roomId);
   });
 
-  // 1. Handler cho sự kiện chủ động rời phòng
   socket.on('room:leave', () => {
     if (socket.roomId) {
       handleUserRemoval(io, socket.roomId, socket.id);
@@ -289,7 +283,6 @@ export function registerRoomHandlers(io, socket) {
     }
   });
 
-  // 2. Handler cho sự kiện disconnect (vẫn giữ để backup)
   socket.on('disconnect', () => {
     if (socket.roomId) {
       handleUserRemoval(io, socket.roomId, socket.id);
@@ -297,7 +290,6 @@ export function registerRoomHandlers(io, socket) {
   });
 }
 
-/** Sync DB expiry into memory on server start for active rooms */
 export function startExpirySweep(io) {
   setInterval(() => {
     for (const [roomId, room] of activeRooms.entries()) {
